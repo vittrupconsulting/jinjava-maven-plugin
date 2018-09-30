@@ -9,7 +9,7 @@ import static org.junit.Assert.*;
 import org.junit.Test;
 import java.io.File;
 
-public class MyMojoTest
+public class JinjavaMojoTest
 {
     @Rule
     public MojoRule rule = new MojoRule()
@@ -36,11 +36,11 @@ public class MyMojoTest
         assertNotNull( pom );
         assertTrue( pom.exists() );
 
-        MyMojo myMojo = ( MyMojo ) rule.lookupConfiguredMojo( pom, "jinjava" );
-        assertNotNull( myMojo );
-        myMojo.execute();
+        JinjavaMojo jinjavaMojo = (JinjavaMojo) rule.lookupConfiguredMojo( pom, "jinjava" );
+        assertNotNull(jinjavaMojo);
+        jinjavaMojo.execute();
 
-//        File outputDirectory = ( File ) rule.getVariableValueFromObject( myMojo, "outputDirectory" );
+//        File outputDirectory = ( File ) rule.getVariableValueFromObject( jinjavaMojo, "outputDirectory" );
 //        assertNotNull( outputDirectory );
 //        assertTrue( outputDirectory.exists() );
 //

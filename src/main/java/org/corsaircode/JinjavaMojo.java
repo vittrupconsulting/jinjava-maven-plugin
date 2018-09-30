@@ -20,7 +20,7 @@ import java.util.Map;
  * Goal which touches a timestamp file.
  */
 @Mojo(name = "jinjava", defaultPhase = LifecyclePhase.PROCESS_SOURCES)
-public class MyMojo
+public class JinjavaMojo
         extends AbstractMojo {
 
     private static final String[] DEFAULT_INCLUDES = new String[]{"**/*.j2", "**/*.jinja2",};

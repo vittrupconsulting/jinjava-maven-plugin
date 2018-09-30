@@ -36,16 +36,16 @@ public class MyMojoTest
         assertNotNull( pom );
         assertTrue( pom.exists() );
 
-        MyMojo myMojo = ( MyMojo ) rule.lookupConfiguredMojo( pom, "touch" );
+        MyMojo myMojo = ( MyMojo ) rule.lookupConfiguredMojo( pom, "jinjava" );
         assertNotNull( myMojo );
         myMojo.execute();
 
-        File outputDirectory = ( File ) rule.getVariableValueFromObject( myMojo, "outputDirectory" );
-        assertNotNull( outputDirectory );
-        assertTrue( outputDirectory.exists() );
-
-        File touch = new File( outputDirectory, "touch.txt" );
-        assertTrue( touch.exists() );
+//        File outputDirectory = ( File ) rule.getVariableValueFromObject( myMojo, "outputDirectory" );
+//        assertNotNull( outputDirectory );
+//        assertTrue( outputDirectory.exists() );
+//
+//        File touch = new File( outputDirectory, "touch.txt" );
+//        assertTrue( touch.exists() );
 
     }
 

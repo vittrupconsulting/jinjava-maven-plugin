@@ -1,75 +1,95 @@
 package org.corsaircode;
 
 
-import com.google.common.collect.Maps;
 import com.hubspot.jinjava.Jinjava;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
-
 import org.apache.maven.plugins.annotations.LifecyclePhase;
 import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
+import org.codehaus.plexus.util.DirectoryScanner;
+import org.codehaus.plexus.util.FileUtils;
 
 import java.io.File;
-import java.io.FileWriter;
 import java.io.IOException;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 
 /**
  * Goal which touches a timestamp file.
  */
-@Mojo( name = "touch", defaultPhase = LifecyclePhase.PROCESS_SOURCES )
+@Mojo(name = "jinjava", defaultPhase = LifecyclePhase.PROCESS_SOURCES)
 public class MyMojo
-    extends AbstractMojo
-{
+        extends AbstractMojo {
+
+    private static final String[] DEFAULT_INCLUDES = new String[]{"**/*.j2", "**/*.jinja2",};
+
     /**
-     * Location of the file.
+     * The directory which contains the resources you want scanned for templates.
      */
-    @Parameter( defaultValue = "${project.build.directory}", property = "outputDir", required = true )
-    private File outputDirectory;
+    @Parameter(defaultValue = "${basedir}/src/main/resources")
+    private File resourcesDirectory;
 
-    public void execute()
-        throws MojoExecutionException
-    {
-        File f = outputDirectory;
+    @Parameter(defaultValue = "${project.build.directory}/${project.build.finalName}")
+    private File resourcesOutput;
 
-        if ( !f.exists() )
-        {
-            f.mkdirs();
+    /**
+     * My Map.
+     */
+    @Parameter
+    private Map context;
+
+    /**
+     * A list of files to include. Can contain ant-style wildcards and double wildcards.
+     * The default includes are
+     * <code>**&#47;*.j2   **&#47;*.jinja2</code>
+     *
+     * @since 1.0-alpha-5
+     */
+    @Parameter
+    private String[] includes;
+
+    /**
+     * A list of files to exclude. Can contain ant-style wildcards and double wildcards.
+     *
+     * @since 1.0-alpha-5
+     */
+    @Parameter
+    private String[] excludes;
+
+    public void execute() throws MojoExecutionException {
+
+        DirectoryScanner scanner = new DirectoryScanner();
+
+        scanner.setBasedir(resourcesDirectory);
+        if (includes != null && includes.length != 0) {
+            scanner.setIncludes(includes);
+        } else {
+            scanner.setIncludes(DEFAULT_INCLUDES);
         }
 
-        File touch = new File( f, "touch.txt" );
+        if (excludes != null && excludes.length != 0) {
+            scanner.setExcludes(excludes);
+        }
 
-        FileWriter w = null;
-        try
-        {
-            w = new FileWriter( touch );
+        scanner.addDefaultExcludes();
+        scanner.scan();
+
+        List<String> includedFiles = Arrays.asList(scanner.getIncludedFiles());
+
+        for (String resource : includedFiles) {
 
             Jinjava jinjava = new Jinjava();
-            Map<String, Object> context = Maps.newHashMap();
-            context.put("name", "Jared");
 
-            /*String template = Resources.toString(Resources.getResource("my-template.html"), Charsets.UTF_8);*/
+            try {
+                String source = resourcesDirectory + "\\" + resource;
+                String target = resourcesDirectory + "\\" + resource.substring(0, resource.lastIndexOf("."));
 
-            w.write(jinjava.render("<div>Hello, {{ name }}!</div>", context));
-            /*w.write( "touch.txt" );*/
-        }
-        catch ( IOException e )
-        {
-            throw new MojoExecutionException( "Error creating file " + touch, e );
-        }
-        finally
-        {
-            if ( w != null )
-            {
-                try
-                {
-                    w.close();
-                }
-                catch ( IOException e )
-                {
-                    // ignore
-                }
+                FileUtils.fileWrite(target, jinjava.render(FileUtils.fileRead(source), context));
+
+            } catch (IOException e) {
+                throw new MojoExecutionException("Error reading source file.", e);
             }
         }
     }

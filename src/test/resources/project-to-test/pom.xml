@@ -17,9 +17,6 @@
                 <artifactId>jinjava-maven-plugin</artifactId>
                 <configuration>
                     <!-- Specify the JinjavaMojo parameter -->
-                    <context>
-                        <name>World</name>
-                    </context>
                 </configuration>
             </plugin>
         </plugins>

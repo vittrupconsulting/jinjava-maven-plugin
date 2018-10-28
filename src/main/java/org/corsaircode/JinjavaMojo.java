@@ -12,26 +12,56 @@ import org.apache.maven.plugins.annotations.LifecyclePhase;
 import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.project.MavenProject;
+import org.codehaus.plexus.util.DirectoryScanner;
 import org.codehaus.plexus.util.FileUtils;
 
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
-@Mojo(name = "jinjava", defaultPhase = LifecyclePhase.GENERATE_RESOURCES)
+@Mojo(name = "jinjava", defaultPhase = LifecyclePhase.PREPARE_PACKAGE)
 public class JinjavaMojo extends AbstractMojo {
 
-    @Parameter(defaultValue = "${project.build.scriptSourceDirectory}")
-    private String templateFolder;
+    private static final String[] DEFAULT_INCLUDES = new String[]{"**/*.j2"};
 
+    /**
+     * The directory which contains the resources you want scanned for jinja template files.
+     */
+    @Parameter(defaultValue = "${project.build.scriptSourceDirectory}")
+    private File resourcesDirectory;
+
+    /**
+     * The directory where to place the processed jinja template files
+     */
+    @Parameter(defaultValue = "${project.build.directory}/generated-resources/jinja")
+    private File resourcesOutput;
+
+    /**
+     * A list of files to include. Can contain ant-style wildcards and double wildcards.
+     * The default includes are
+     * <code>**&#47;*.j2</code>
+     */
     @Parameter
-    private Properties templates;
+    private String[] includes;
+
+    /**
+     * A list of files to exclude. Can contain ant-style wildcards and double wildcards.
+     */
+    @Parameter
+    private String[] excludes;
+
+    @Parameter(defaultValue = "${project}", readonly = true, required = true)
+    private MavenProject currentProject;
 
     public void execute() throws MojoExecutionException {
 
         Jinjava jinjava = new Jinjava();
+
         Map<String, Object> context = Maps.newHashMap();
 
         Model model = null;
@@ -61,26 +91,52 @@ public class JinjavaMojo extends AbstractMojo {
         for (Map.Entry<Object, Object> property : project.getProperties().entrySet()) {
             Map<String, String> map = new HashMap<>();
             map.put(property.getKey().toString(), property.getValue().toString());
-            System.out.println(property.getKey().toString() + "==>>" + property.getValue().toString());
             properties.add(map);
         }
         context.put("properties", properties);
 
+        FileUtils.mkdir(resourcesOutput.getPath());
 
-        for (Object key : templates.keySet()) {
+        DirectoryScanner scanner = new DirectoryScanner();
+
+        scanner.setBasedir(resourcesDirectory);
+        if (includes != null && includes.length != 0) {
+            scanner.setIncludes(includes);
+        } else {
+            scanner.setIncludes(DEFAULT_INCLUDES);
+        }
+
+        if (excludes != null && excludes.length != 0) {
+            scanner.setExcludes(excludes);
+        }
+
+        scanner.addDefaultExcludes();
+        scanner.scan();
+
+        for (String key : scanner.getIncludedFiles()) {
+            File file = new File(resourcesOutput + "\\" + key.substring(0, key.lastIndexOf(".")));
             try {
-                String source = (templateFolder + "/" + key.toString()).replace("\\", "/");
-                String target = (templates.get(key).toString()).replace("\\", "/");
-
-                String sourceContent = FileUtils.fileRead(source);
+                String sourceContent = FileUtils.fileRead(resourcesDirectory + "\\" + key);
                 String targetContent = jinjava.render(sourceContent, context);
 
-                PrintWriter out = new PrintWriter(target);
+                file.getParentFile().mkdirs();
+
+                PrintWriter out = new PrintWriter(file);
                 out.print(targetContent);
                 out.close();
+
             } catch (IOException e) {
-                e.printStackTrace();
+                throw new MojoExecutionException("Unable to process jinja template file", e);
             }
         }
+
+        try {
+            File output = new File(currentProject.getBuild().getOutputDirectory());
+            File target = new File(output.getParentFile() + "/" + currentProject.getBuild().getFinalName());
+            FileUtils.copyDirectoryStructure(resourcesOutput, target);
+        } catch (IOException e) {
+            throw new MojoExecutionException("Unable to copy generated resources to build output folder", e);
+        }
+
     }
 }

@@ -24,7 +24,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-@Mojo(name = "jinjava", defaultPhase = LifecyclePhase.PREPARE_PACKAGE)
+@Mojo(name = "jinjava", defaultPhase = LifecyclePhase.GENERATE_RESOURCES)
 public class JinjavaMojo extends AbstractMojo {
 
     private static final String[] DEFAULT_INCLUDES = new String[]{"**/*.j2"};

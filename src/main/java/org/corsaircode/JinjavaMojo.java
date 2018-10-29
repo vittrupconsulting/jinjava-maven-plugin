@@ -56,7 +56,7 @@ public class JinjavaMojo extends AbstractMojo {
     private String[] excludes;
 
     @Parameter(defaultValue = "${project}", readonly = true, required = true)
-    private MavenProject currentProject;
+    private MavenProject project;
 
     public void execute() throws MojoExecutionException {
 
@@ -74,10 +74,17 @@ public class JinjavaMojo extends AbstractMojo {
         } catch (Exception ex) {
         }
 
-        MavenProject project = new MavenProject(model);
+        MavenProject mavenProject = new MavenProject(model);
+
+        Map<String, String> details = new HashMap<String, String>();
+        details.put("groupId", mavenProject.getModel().getGroupId());
+        details.put("artifactId", mavenProject.getModel().getArtifactId());
+        details.put("description", mavenProject.getModel().getDescription());
+        details.put("name", mavenProject.getModel().getName());
+        context.put("project", details);
 
         List<Map<String, String>> dependencies = new ArrayList<Map<String, String>>();
-        for (Dependency dependency : project.getDependencies()) {
+        for (Dependency dependency : mavenProject.getDependencies()) {
             Map<String, String> map = new HashMap<>();
             map.put("groupId", dependency.getGroupId());
             map.put("artifactId", dependency.getArtifactId());
@@ -87,11 +94,9 @@ public class JinjavaMojo extends AbstractMojo {
         }
         context.put("dependencies", dependencies);
 
-        List<Map<String, String>> properties = new ArrayList<Map<String, String>>();
-        for (Map.Entry<Object, Object> property : project.getProperties().entrySet()) {
-            Map<String, String> map = new HashMap<>();
-            map.put(property.getKey().toString(), property.getValue().toString());
-            properties.add(map);
+        Map<String, String> properties = new HashMap<String, String>();
+        for (Map.Entry<Object, Object> property : mavenProject.getProperties().entrySet()) {
+            properties.put(property.getKey().toString(), property.getValue().toString());
         }
         context.put("properties", properties);
 
@@ -99,44 +104,46 @@ public class JinjavaMojo extends AbstractMojo {
 
         DirectoryScanner scanner = new DirectoryScanner();
 
-        scanner.setBasedir(resourcesDirectory);
-        if (includes != null && includes.length != 0) {
-            scanner.setIncludes(includes);
-        } else {
-            scanner.setIncludes(DEFAULT_INCLUDES);
-        }
+        if( resourcesDirectory.isDirectory()) {
 
-        if (excludes != null && excludes.length != 0) {
-            scanner.setExcludes(excludes);
-        }
+            scanner.setBasedir(resourcesDirectory);
+            if (includes != null && includes.length != 0) {
+                scanner.setIncludes(includes);
+            } else {
+                scanner.setIncludes(DEFAULT_INCLUDES);
+            }
 
-        scanner.addDefaultExcludes();
-        scanner.scan();
+            if (excludes != null && excludes.length != 0) {
+                scanner.setExcludes(excludes);
+            }
 
-        for (String key : scanner.getIncludedFiles()) {
-            File file = new File(resourcesOutput + "\\" + key.substring(0, key.lastIndexOf(".")));
+            scanner.addDefaultExcludes();
+            scanner.scan();
+
+            for (String key : scanner.getIncludedFiles()) {
+                File file = new File(resourcesOutput + "\\" + key.substring(0, key.lastIndexOf(".")));
+                try {
+                    String sourceContent = FileUtils.fileRead(resourcesDirectory + "\\" + key);
+                    String targetContent = jinjava.render(sourceContent, context);
+
+                    file.getParentFile().mkdirs();
+
+                    PrintWriter out = new PrintWriter(file);
+                    out.print(targetContent);
+                    out.close();
+
+                } catch (IOException e) {
+                    throw new MojoExecutionException("Unable to process jinja template file", e);
+                }
+            }
+
             try {
-                String sourceContent = FileUtils.fileRead(resourcesDirectory + "\\" + key);
-                String targetContent = jinjava.render(sourceContent, context);
-
-                file.getParentFile().mkdirs();
-
-                PrintWriter out = new PrintWriter(file);
-                out.print(targetContent);
-                out.close();
-
+                File output = new File(project.getBuild().getOutputDirectory());
+                File target = new File(output.getParentFile() + "/" + project.getBuild().getFinalName());
+                FileUtils.copyDirectoryStructure(resourcesOutput, target);
             } catch (IOException e) {
-                throw new MojoExecutionException("Unable to process jinja template file", e);
+                throw new MojoExecutionException("Unable to copy generated resources to build output folder", e);
             }
         }
-
-        try {
-            File output = new File(currentProject.getBuild().getOutputDirectory());
-            File target = new File(output.getParentFile() + "/" + currentProject.getBuild().getFinalName());
-            FileUtils.copyDirectoryStructure(resourcesOutput, target);
-        } catch (IOException e) {
-            throw new MojoExecutionException("Unable to copy generated resources to build output folder", e);
-        }
-
     }
 }
